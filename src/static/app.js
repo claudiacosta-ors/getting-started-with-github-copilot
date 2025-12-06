@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ? `<div class="participants-section">
                <strong>Current Participants:</strong>
                <ul class="participants-list">
-                 ${details.participants.map(email => `<li>${email}</li>`).join('')}
+                 ${details.participants.map(email => `<li><span class="participant-email">${email}</span><button class="delete-btn" data-activity="${name}" data-email="${email}" title="Unregister">✕</button></li>`).join('')}
                </ul>
              </div>`
           : `<div class="participants-section">
@@ -51,6 +51,9 @@ document.addEventListener("DOMContentLoaded", () => {
         option.textContent = name;
         activitySelect.appendChild(option);
       });
+
+      // Attach delete handlers to all delete buttons
+      attachDeleteHandlers();
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
       console.error("Error fetching activities:", error);
@@ -77,9 +80,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (response.ok) {
         messageDiv.textContent = result.message;
         messageDiv.className = "message success";
-        signupForm.reset();
         // Refresh activities to show new participant
-        fetchActivities();
+        await fetchActivities();
+        signupForm.reset();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "message error";
@@ -98,6 +101,56 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error signing up:", error);
     }
   });
+
+  // Function to attach delete button handlers
+  async function attachDeleteHandlers() {
+    const deleteButtons = document.querySelectorAll(".delete-btn");
+    deleteButtons.forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const activityName = btn.getAttribute("data-activity");
+        const email = btn.getAttribute("data-email");
+        
+        // Confirm deletion
+        if (!confirm(`Unregister ${email} from ${activityName}?`)) {
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `/activities/${encodeURIComponent(activityName)}/unregister?email=${encodeURIComponent(email)}`,
+            {
+              method: "DELETE",
+            }
+          );
+
+          const result = await response.json();
+
+          if (response.ok) {
+            messageDiv.textContent = result.message;
+            messageDiv.className = "message success";
+            // Refresh activities to reflect the removal
+            fetchActivities();
+          } else {
+            messageDiv.textContent = result.detail || "An error occurred";
+            messageDiv.className = "message error";
+          }
+
+          messageDiv.classList.remove("hidden");
+
+          // Hide message after 5 seconds
+          setTimeout(() => {
+            messageDiv.classList.add("hidden");
+          }, 5000);
+        } catch (error) {
+          messageDiv.textContent = "Failed to unregister. Please try again.";
+          messageDiv.className = "message error";
+          messageDiv.classList.remove("hidden");
+          console.error("Error unregistering:", error);
+        }
+      });
+    });
+  }
 
   // Initialize app
   fetchActivities();
